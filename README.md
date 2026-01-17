@@ -13,14 +13,14 @@
 ---
 
 ## 📸 界面预览
-![](./d/Screenshot 2026-01-17 195940.png)
+![.](https://raw.githubusercontent.com/clain333/godisk/refs/heads/main/d/Screenshot 2026-01-17 195940.png)
 ### 🖥️ 系统登录
-![](./d/Screenshot 2026-01-17 195921.png)
+!([.](https://raw.githubusercontent.com/clain333/godisk/refs/heads/main/d/Screenshot 2026-01-17 195921.png)
 > **超低内存运行：**
-![](./d/Screenshot 2026-01-17 195914.png)
+([.](https://raw.githubusercontent.com/clain333/godisk/refs/heads/main/d/Screenshot 2026-01-17 195914.png)
 ### 🎬 在线预览 (视频与图片)
-![](./d/Screenshot 2026-01-17 195938.png)
-![](./d/Screenshot 2026-01-17 195936.png)
+!([.](https://raw.githubusercontent.com/clain333/godisk/refs/heads/main/d/Screenshot 2026-01-17 195938.png)
+!([.](https://raw.githubusercontent.com/clain333/godisk/refs/heads/main/d/Screenshot 2026-01-17 195936.png)
 ---
 
 ## ⚙️ 配置说明
