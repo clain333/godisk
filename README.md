@@ -10,18 +10,13 @@
 * 📝 **简易便签**：内置便签系统，随时记录文字碎片。
 * 🔒 **单用户管理**：专为个人设计，配置简单，安全可控。
 
----
+![Screenshot 2026-01-17 195940](d/Screenshot%202026-01-17%20195940.png)
+![Screenshot 2026-01-17 195914](d/Screenshot%202026-01-17%20195914.png)
+![Screenshot 2026-01-17 195936](d/Screenshot%202026-01-17%20195936.png)
+![Screenshot 2026-01-17 195938](d/Screenshot%202026-01-17%20195938.png)
+![Screenshot 2026-01-17 195926](d/Screenshot%202026-01-17%20195926.png) 
+![Screenshot 2026-01-17 195933](d/Screenshot%202026-01-17%20195933.png)
 
-## 📸 界面预览
-![.](https://raw.githubusercontent.com/clain333/godisk/refs/heads/main/d/Screenshot 2026-01-17 195940.png)
-### 🖥️ 系统登录
-!([.](https://raw.githubusercontent.com/clain333/godisk/refs/heads/main/d/Screenshot 2026-01-17 195921.png)
-> **超低内存运行：**
-([.](https://raw.githubusercontent.com/clain333/godisk/refs/heads/main/d/Screenshot 2026-01-17 195914.png)
-### 🎬 在线预览 (视频与图片)
-!([.](https://raw.githubusercontent.com/clain333/godisk/refs/heads/main/d/Screenshot 2026-01-17 195938.png)
-!([.](https://raw.githubusercontent.com/clain333/godisk/refs/heads/main/d/Screenshot 2026-01-17 195936.png)
----
 
 ## ⚙️ 配置说明
 
