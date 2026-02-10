@@ -9,9 +9,7 @@ import (
 	"github.com/valyala/fasthttp"
 )
 
-// init函数在main函数之前执行
 func init() {
-	// 生成cookie key和54位随机字符串作为cookie值
 	InitEnv()
 	InitLog()
 	go InitRateLimiting()
