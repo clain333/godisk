@@ -1,0 +1,1417 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GODISK主页</title>
+    <link href="/static/ui/fonts/remixicon.css" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #222;
+            --text-main: #111;
+            --text-sub: #444;
+            --accent-blue: #00a1d6;
+            --accent-green: #27ae60;
+            --glass-bg: rgba(255, 255, 255, 0.45);
+            --glass-border: rgba(255, 255, 255, 0.4);
+            --modal-bg: rgba(255, 255, 255, 0.95);
+            --overlay-bg: rgba(0, 0, 0, 0.5);
+            --ease-bounce: cubic-bezier(0.34, 1.56, 0.64, 1);
+            --ease-smooth: cubic-bezier(0.22, 1, 0.36, 1);
+            --primary-color: #2563eb;
+            --bg-page: #f8fafc;
+            --bg-editor: #ffffff;
+            --border-color: #e2e8f0;
+            --text-muted: #64748b;
+        }
+
+        /* --- 全局与重置 --- */
+        * { margin: 0; padding: 0; box-sizing: border-box; user-select: none; outline: none; }
+        html, body { width: 100%; height: 100%; font-family: "PingFang SC", "Microsoft YaHei", sans-serif; }
+        body {
+            background: url('/static/bkg') no-repeat center center / cover;
+            display: flex; justify-content: center; align-items: center; color: var(--text-main);
+            overflow: hidden;
+        }
+
+        /* --- Toast 提示 --- */
+        #toast-container { position: fixed; top: 20px; right: 20px; z-index: 20000; display: flex; flex-direction: column; gap: 10px; }
+        .toast {
+            min-width: 200px; padding: 12px 20px; background: rgba(255, 255, 255, 0.98);
+            border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.15); display: flex; align-items: center;
+            font-size: 14px; color: #000; border-left: 5px solid #2ecc71;
+            animation: slideInRight 0.3s forwards, fadeOut 0.5s forwards 3s;
+        }
+        .toast.error { border-color: #e74c3c; }
+        .toast.error i { color: #e74c3c; }
+        .toast i { font-size: 18px; margin-right: 10px; color: #2ecc71; }
+        @keyframes slideInRight { from { opacity: 0; transform: translateX(120%); } to { opacity: 1; transform: translateX(0); } }
+        @keyframes fadeOut { to { opacity: 0; transform: translateX(20%); pointer-events: none; } }
+
+        /* 滚动条美化 */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.2); border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(0,0,0,0.4); }
+
+        /* --- 主界面容器 (Z-Index: 10) --- */
+        .glass-modal {
+            width: 55%; height: 69%;
+            background: var(--glass-bg); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+            border: 1px solid var(--glass-border); box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.2);
+            border-radius: 20px; display: flex; flex-direction: column; overflow: hidden;
+            animation: fadeIn 0.5s var(--ease-smooth); position: relative;
+            z-index: 10; /* 保持在底层，但高于背景 */
+        }
+        @keyframes fadeIn { from { opacity: 0; transform: scale(0.96) translateY(20px); } to { opacity: 1; transform: scale(1) translateY(0); } }
+
+        /* 顶部栏 */
+        .header-section, .toolbar-section, .path-bar { padding: 0 24px; border-bottom: 1px solid rgba(0,0,0,0.1); }
+        .header-section { height: 54px; display: flex; justify-content: space-between; align-items: center; }
+
+        /* 存储条 */
+        .storage-info { display: flex; align-items: center; gap: 12px; font-size: 14px; font-weight: 600; }
+        .progress-bar-bg { width: 140px; height: 8px; background: rgba(0,0,0,0.1); border-radius: 4px; overflow: hidden; }
+        .progress-bar-fill { height: 100%; width: 0%; transition: width 0.5s ease, background 0.5s ease; }
+        .time-display { font-family: 'SF Mono', monospace; font-size: 14px; background: rgba(255,255,255,0.5); padding: 4px 10px; border-radius: 6px; font-weight: 500; }
+
+        /* 工具栏按钮 */
+        .toolbar-section { height: 64px; display: flex; align-items: center; gap: 12px; }
+        .tool-btn {
+            width: 40px; height: 40px; border-radius: 10px; border: 1px solid rgba(0,0,0,0.1);
+            background: rgba(255,255,255,0.6); display: flex; justify-content: center; align-items: center;
+            cursor: pointer; transition: all 0.2s ease; font-size: 20px; color: #222;
+        }
+        .tool-btn:hover { background: rgba(255,255,255,0.95); transform: translateY(-2px); border-color: #666; }
+        .btn-logout:hover { background: rgba(255, 230, 230, 0.9); color: #d32f2f; border-color: #d32f2f; }
+        .spacer { margin-left: auto; }
+
+        /* 面包屑 */
+        .path-bar { height: 40px; display: flex; align-items: center; background: rgba(255,255,255,0.3); font-size: 13px; gap: 5px; overflow-x: auto; white-space: nowrap; }
+        .crumb-item { cursor: pointer; padding: 2px 6px; border-radius: 4px; transition: 0.2s; color: #444; }
+        .crumb-item:hover { color: #000; background: rgba(255,255,255,0.6); }
+        .crumb-current { font-weight: 700; color: #000; cursor: default; }
+
+        /* 文件列表 */
+        .content-section { flex: 1; overflow-y: auto; }
+        .file-table { width: 100%; border-collapse: collapse; font-size: 14px; table-layout: fixed; }
+        .file-table thead th {
+            text-align: left; padding: 12px 8px; border-bottom: 1px solid rgba(0,0,0,0.1);
+            position: sticky; top: 0; background: rgba(245, 247, 250, 0.85); backdrop-filter: blur(10px);
+            z-index: 10; /* 表头不需要太高，但在内容之上 */
+        }
+        .file-table tbody td { padding: 12px 8px; border-bottom: 1px solid rgba(0,0,0,0.06); vertical-align: middle; }
+        .file-table tbody tr { cursor: pointer; transition: background 0.1s; }
+        .file-table tbody tr:hover { background: rgba(255,255,255,0.5); }
+
+        .col-icon { width: 45px; text-align: center; font-size: 22px; color: #444; }
+        .col-name { width: 25%; max-width: 300px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .col-size { width: 80px; font-size: 13px; color: #333; }
+        .col-time { width: 150px; font-size: 13px; color: #444; }
+        .col-op-sm { width: 50px; text-align: center; }
+
+        .action-icon { font-size: 19px; color: #555; cursor: pointer; transition: 0.2s; }
+        .action-icon:hover { transform: scale(1.1); color: #000; }
+        .icon-del:hover { color: #d32f2f; } .icon-down:hover { color: #1976d2; }
+
+        /* --- 模态框系统 (修复 Z-Index) --- */
+        .universal-overlay {
+            position: fixed; inset: 0; background: var(--overlay-bg); backdrop-filter: blur(8px);
+            display: flex; align-items: center; justify-content: center;
+            opacity: 0; visibility: hidden; pointer-events: none; transition: all 0.3s ease;
+
+            /* 关键修复：基础遮罩层必须高于主界面(10) */
+            z-index: 1000;
+        }
+        .universal-overlay.active { opacity: 1; visibility: visible; pointer-events: auto; }
+
+        /* 特殊模态框层级提升 */
+        .modal-image { z-index: 2000; }  /* 图片预览比普通弹窗高 */
+        .modal-music { z-index: 3000; }  /* 音乐播放器更高 */
+        .modal-video { z-index: 10000; background: rgba(0,0,0,0.9); } /* 视频最高 */
+
+        /* 弹窗容器 */
+        .modal-box {
+            background: var(--modal-bg); backdrop-filter: blur(30px); border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,1);
+            display: flex; flex-direction: column; overflow: hidden;
+            transform: scale(0.9); transition: transform 0.3s var(--ease-bounce);
+        }
+        .universal-overlay.active .modal-box { transform: scale(1); }
+
+        /* 尺寸定义 */
+        .modal-settings { width: 480px; max-height: 90vh; }
+        .modal-create { width: 360px; padding: 20px; }
+
+        /* 模态框内部组件 */
+        .modal-header { padding: 16px 24px; display: flex; justify-content: space-between; font-weight: 700; border-bottom: 1px solid rgba(0,0,0,0.06); background: rgba(255,255,255,0.6); }
+        .modal-header-sm { display: flex; justify-content: space-between; font-weight: 700; margin-bottom: 10px; }
+        .modal-body { padding: 24px; overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 16px; }
+
+        .glass-input { width: 100%; padding: 10px 12px; border-radius: 8px; border: 1px solid rgba(0,0,0,0.15); background: rgba(255,255,255,0.6); transition: .2s; }
+        .glass-input:focus { background: #fff; border-color: #222; box-shadow: 0 0 0 2px rgba(0,0,0,0.1); }
+
+        .btn-glass { padding: 10px; border-radius: 8px; border: none; cursor: pointer; font-weight: 600; display: flex; justify-content: center; align-items: center; gap: 5px; transition: .2s; }
+        .btn-primary { background: #222; color: #fff; box-shadow: 0 4px 10px rgba(0,0,0,0.2); }
+        .btn-primary:hover { opacity: 0.9; transform: translateY(-1px); }
+        .btn-secondary { background: rgba(255,255,255,0.8); border: 1px solid rgba(0,0,0,0.15); }
+        .btn-secondary:hover { background: #fff; border-color: #666; }
+        .action-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+        .switch { position: relative; width: 36px; height: 20px; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider { position: absolute; inset: 0; background: rgba(0,0,0,0.2); border-radius: 34px; transition: .3s; cursor: pointer; }
+        .slider:before { content: ""; position: absolute; height: 16px; width: 16px; left: 2px; bottom: 2px; background: white; border-radius: 50%; transition: .3s; }
+        input:checked + .slider { background: var(--accent-green); }
+        input:checked + .slider:before { transform: translateX(16px); }
+
+        /* --- 播放器/预览组件 --- */
+        .player-card {
+            width: 25%; height: 68%; background: rgba(255, 255, 255, 0.15); backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 30px; padding: 30px;
+            color: white; text-align: center; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            transform: scale(0.8) translateY(40px); transition: transform 0.4s var(--ease-bounce); position: relative;
+        }
+        .universal-overlay.active .player-card { transform: scale(1) translateY(0); }
+
+        .cover-wrapper { width: 200px; height: 200px; margin: 0 auto 30px; border-radius: 50%; padding: 10px; background: rgba(255,255,255,0.1); }
+        .cover-img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; animation: rotate 20s linear infinite paused; }
+        .playing .cover-img { animation-play-state: running; }
+        @keyframes rotate { to { transform: rotate(360deg); } }
+
+        .ctrl-btn { width: 60px; height: 60px; background: white; color: #222; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 30px; border: none; cursor: pointer; margin: 0 auto 25px; transition: transform 0.2s; }
+        .ctrl-btn:hover { transform: scale(1.1); }
+        input[type="range"] { width: 100%; height: 5px; border-radius: 5px; background: rgba(255,255,255,0.3); outline: none; cursor: pointer; accent-color: var(--accent-blue); }
+
+        .main-image { max-width: 90vw; max-height: 90vh; border-radius: 4px; box-shadow: 0 0 30px rgba(0,0,0,0.5); transform: scale(0.8); transition: transform 0.35s var(--ease-bounce); cursor: default; }
+        .modal-image.active .main-image { transform: scale(1); }
+
+        /* 视频播放器样式 */
+        .v-player-card {
+            width: 90%; max-width: 1000px; aspect-ratio: 16/9; background: #000; border-radius: 20px;
+            position: relative; overflow: hidden; box-shadow: 0 40px 100px rgba(0,0,0,0.8);
+            transform: scale(0.9) translateY(30px); transition: all 0.5s var(--ease-smooth); opacity: 0;
+        }
+        .modal-video.active .v-player-card { transform: scale(1) translateY(0); opacity: 1; }
+        .v-player-card:fullscreen { width: 100vw; height: 100vh; border-radius: 0; }
+
+        .v-header-ui, .v-controls-ui { position: absolute; left: 0; right: 0; padding: 20px; z-index: 10; transition: 0.3s; }
+        .v-header-ui { top: 0; background: linear-gradient(to bottom, rgba(0,0,0,0.8), transparent); display: flex; justify-content: space-between; color: #fff; }
+        .v-controls-ui { bottom: 25px; left: 25px; right: 25px; background: rgba(15,15,15,0.85); backdrop-filter: blur(25px); border-radius: 16px; border: 1px solid rgba(255,255,255,0.1); padding: 12px 20px; }
+        .v-state-hidden .v-header-ui { transform: translateY(-100%); opacity: 0; }
+        .v-state-hidden .v-controls-ui { transform: translateY(150%); opacity: 0; }
+
+        .v-video-tag { width: 100%; height: 100%; object-fit: contain; }
+        .v-center-play { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 80px; height: 80px; background: var(--accent-blue); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-size: 2.5rem; transition: 0.3s; pointer-events: none; }
+
+        .v-btns-row { display: flex; justify-content: space-between; align-items: center; margin-top: 10px; }
+        .v-icon-btn { background: none; border: none; color: white; font-size: 1.5rem; cursor: pointer; transition: 0.2s; }
+        .v-icon-btn:hover { color: var(--accent-blue); }
+        .v-progress-bg { height: 4px; background: rgba(255,255,255,0.2); cursor: pointer; border-radius: 2px; }
+        .v-progress-fill { height: 100%; background: var(--accent-blue); width: 0; border-radius: 2px; }
+        /* 文本编辑器层级 */
+        .modal-editor { z-index: 2500; }
+
+        /* 针对编辑器的特殊样式微调 */
+        #editor-textarea:focus {
+            background: rgba(255,255,255,0.6);
+            box-shadow: inset 0 0 10px rgba(0,0,0,0.05);
+        }
+        /* 文档预览层级 */
+        .modal-doc { z-index: 2600; }
+
+        /* 文档内容容器 */
+        .doc-content-box {
+            width: 100%;
+            height: 100%;
+            overflow-y: auto;
+            padding: 30px;
+            background: #fff; /* 文档通常需要白底 */
+            color: #333;
+            font-size: 15px;
+            line-height: 1.6;
+        }
+
+        /* iframe (PDF) 样式 */
+        .doc-content-box iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+            display: block;
+        }
+
+        /* Excel 表格特定样式 */
+        .doc-content-box table {
+            border-collapse: collapse;
+            width: 100%;
+            font-size: 13px;
+            border: 1px solid #e2e8f0;
+        }
+        .doc-content-box th, .doc-content-box td {
+            border: 1px solid #cbd5e1;
+            padding: 8px 12px;
+            white-space: nowrap;
+        }
+        .doc-content-box tr:nth-child(even) { background-color: #f8fafc; }
+        .doc-content-box tr:hover { background-color: #f1f5f9; }
+        /* --- 移动端适配优化 (添加在 style 标签末尾) --- */
+        @media screen and (max-width: 768px) {
+            /* 1. 主界面全屏化 */
+            .glass-modal {
+                width: 100%;
+                height: 100%;
+                border-radius: 0;
+                border: none;
+                backdrop-filter: blur(15px); /* 手机上增加模糊度 */
+            }
+
+            /* 2. 顶部栏精简 */
+            .header-section { padding: 0 15px; height: 50px; }
+            .time-display { display: none; } /* 手机状态栏已有时间，此处隐藏 */
+            .storage-info span { display: none; } /* 隐藏"我的云盘..."文字，只留图标和条 */
+            .progress-bar-bg { width: 80px; } /* 缩短进度条 */
+
+            /* 3. 工具栏适配 */
+            .toolbar-section {
+                padding: 0 15px;
+                overflow-x: auto; /* 防止图标过多溢出 */
+                gap: 15px;
+            }
+            .tool-btn { width: 36px; height: 36px; font-size: 18px; } /* 稍微改小按钮 */
+
+            /* 4. 文件列表优化 */
+            .content-section { padding-bottom: 20px; }
+            .file-table thead { display: none; } /* 手机端通常隐藏表头，显得更简洁 */
+            .file-table tbody tr {
+                display: flex;
+                align-items: center;
+                border-bottom: 1px solid rgba(0,0,0,0.05);
+                padding: 8px 5px;
+            }
+
+            /* 隐藏次要列 */
+            .col-size, .col-time { display: none; }
+
+            /* 调整核心列布局 */
+            .col-icon { width: 40px; font-size: 24px; }
+            .col-name {
+                flex: 1;
+                width: auto;
+                max-width: none;
+                font-size: 15px;
+                padding-left: 10px;
+            }
+            .col-op-sm { width: 40px; }
+            .action-icon { font-size: 20px; padding: 8px; } /* 增大触控点击区域 */
+
+            /* 5. 模态框适配 */
+            .modal-box { width: 90% !important; max-width: none; max-height: 80vh; }
+            .modal-create { width: 85% !important; }
+            .modal-settings { width: 90% !important; }
+
+            /* 6. 播放器适配 */
+            .player-card {
+                width: 90%;
+                height: auto;
+                padding: 20px;
+                transform: translateY(0) !important; /* 取消缩放位移 */
+            }
+            .cover-wrapper { width: 140px; height: 140px; margin-bottom: 20px; }
+
+            /* 7. 视频播放器全屏 */
+            .v-player-card {
+                width: 100%;
+                height: 100%; /* 竖屏时可能需要高度自适应，横屏全屏 */
+                border-radius: 0;
+                max-width: none;
+                display: flex;
+                flex-direction: column;
+                justify-content: center;
+                background: #000;
+            }
+            .v-video-tag { width: 100%; height: auto; max-height: 100%; }
+
+            /* 8. 文本编辑器适配 */
+            .modal-editor .modal-box { width: 100% !important; height: 100% !important; max-width: 100vw; max-height: 100vh; border-radius: 0; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- 主界面 -->
+<div class="glass-modal">
+    <div class="header-section">
+        <div class="storage-info">
+            <i class="ri-hard-drive-2-line"></i><span>我的云盘：剩余空间</span>
+            <div class="progress-bar-bg"><div id="progress-fill" class="progress-bar-fill"></div></div>
+            <span id="progress-text" style="font-size: 12px; opacity: 0.8; margin-left: 5px;">0%</span>
+        </div>
+        <div class="time-display"><i class="ri-time-line" style="vertical-align: middle; margin-right: 5px;"></i><span id="bj-clock">Loading...</span></div>
+    </div>
+
+    <div class="toolbar-section">
+        <div class="tool-btn" onclick="fileSystem.goBack()" title="返回"><i class="ri-arrow-go-back-line"></i></div>
+        <div class="tool-btn" onclick="modalManager.open('create')" title="新建"><i class="ri-add-line"></i></div>
+        <div class="tool-btn" onclick="fileSystem.triggerUpload()" title="上传"><i class="ri-upload-cloud-line"></i></div>
+        <div class="tool-btn" onclick="settingsManager.open()" title="设置"><i class="ri-settings-3-line"></i></div>
+        <div class="spacer"></div>
+        <div class="tool-btn btn-logout" onclick="userAuth.logout()" title="退出"><i class="ri-logout-box-r-line"></i></div>
+    </div>
+
+    <div class="path-bar" id="breadcrumbs"></div>
+
+    <div class="content-section" id="scroll-container">
+        <table class="file-table">
+            <thead>
+            <tr>
+                <th style="width: 45px"></th>
+                <th style="width: 30%">名称</th>
+                <th style="width: 80px">大小</th>
+                <th style="width: 150px">修改时间</th>
+                <th class="col-op-sm">删除</th>
+                <th class="col-op-sm">下载</th>
+            </tr>
+            </thead>
+            <tbody id="file-list-body"></tbody>
+        </table>
+        <div id="loading-tip" class="load-more-tip" style="text-align:center; padding:10px; color:#666; font-size:12px; display:none">加载中...</div>
+        <div id="no-more-tip" class="load-more-tip" style="text-align:center; padding:10px; color:#666; font-size:12px; display:none">没有更多文件了</div>
+    </div>
+</div>
+
+<!-- 1. 新建文件/文件夹 Modal (设置了 z-index: 1000) -->
+<div class="universal-overlay modal-create-overlay" id="modal-create" onclick="modalManager.closeIfBackground(event, 'modal-create')">
+    <div class="modal-box modal-create">
+        <div class="modal-header-sm">
+            <span>新建项目</span>
+            <i class="ri-close-line action-icon" onclick="modalManager.close('modal-create')"></i>
+        </div>
+        <input type="text" id="create-name-input" class="glass-input" placeholder="请输入名称..." autocomplete="off">
+        <div class="action-grid" style="margin-top: 15px;">
+            <button class="btn-glass btn-secondary" onclick="fileSystem.submitCreate('file')"><i class="ri-file-add-line"></i> 文件</button>
+            <button class="btn-glass btn-primary" onclick="fileSystem.submitCreate('folder')"><i class="ri-folder-add-line"></i> 文件夹</button>
+        </div>
+    </div>
+</div>
+
+<!-- 2. 设置 Modal (设置了 z-index: 1000) -->
+<div class="universal-overlay modal-settings-overlay" id="modal-settings" onclick="modalManager.closeIfBackground(event, 'modal-settings')">
+    <div class="modal-box modal-settings">
+        <div class="modal-header">
+            <span>系统设置</span>
+            <i class="ri-close-line action-icon" onclick="modalManager.close('modal-settings')"></i>
+        </div>
+        <div class="modal-body">
+            <div style="background:rgba(255,255,255,0.5); padding:10px; border-radius:10px; text-align:center;">
+                <canvas id="qrcode" style="width:200px; height:200px; border-radius:8px;"></canvas>
+            </div>
+            <input type="text" id="secret-input" class="glass-input" placeholder="输入 Key (密钥)" autocomplete="off">
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 0 5px;">
+                <span style="font-weight: 600; font-size: 14px;">开启登录验证</span>
+                <label class="switch"><input type="checkbox" id="switch-isLogin"><span class="slider"></span></label>
+            </div>
+            <div class="action-grid">
+                <input type="file" id="bkginput" style="display: none"/>
+                <button class="btn-glass btn-secondary" onclick="settingsManager.changeBg()"><i class="ri-image-edit-line"></i> 修改背景</button>
+                <button class="btn-glass btn-secondary" onclick="settingsManager.updateSecret()"><i class="ri-key-2-line"></i> 修改密钥</button>
+                <button class="btn-glass btn-secondary" onclick="settingsManager.viewLog()"><i class="ri-file-list-3-line"></i> 查看日志</button>
+                <button class="btn-glass btn-secondary" onclick="settingsManager.clearLog()"><i class="ri-delete-bin-2-line"></i> 清空日志</button>
+                <button class="btn-glass btn-secondary" onclick="settingsManager.cleanTrash()"><i class="ri-delete-bin-2-line"></i> 清空回收站</button>
+                <button class="btn-glass btn-secondary" onclick="settingsManager.cleanIp()"><i class="ri-shield-check-line"></i> 解封 IP</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 3. 图片预览 Modal (z-index: 2000) -->
+<div class="universal-overlay modal-image" id="modal-image" onclick="modalManager.close('modal-image')">
+    <img src="" class="main-image" id="img-preview" alt="Preview" onclick="event.stopPropagation()">
+    <div style="position: absolute; top: 20px; right: 20px; color: white; opacity: 0.6; cursor: pointer;">
+        <i class="ri-close-line" style="font-size: 30px;"></i>
+    </div>
+</div>
+
+<!-- 4. 音乐播放器 Modal (z-index: 3000) -->
+<div class="universal-overlay modal-music" id="modal-music" onclick="modalManager.closeIfBackground(event, 'modal-music')">
+    <div class="player-card">
+        <i class="ri-close-line action-icon" style="position:absolute; top:20px; right:20px; color:white; font-size:24px;" onclick="modalManager.close('modal-music')"></i>
+        <h2 id="music-name" style="margin-bottom: 20px; font-size: 1.5rem;">未知歌曲</h2>
+        <div class="cover-wrapper" id="cover-wrapper"><img src="" class="cover-img" id="music-cover"></div>
+        <div style="margin-bottom: 20px;">
+            <input type="range" id="music-progress" min="0" max="100" value="0">
+            <div style="display:flex; justify-content:space-between; font-size:12px; margin-top:5px; opacity:0.8;">
+                <span id="music-time-curr">0:00</span><span id="music-time-total">0:00</span>
+            </div>
+        </div>
+        <button class="ctrl-btn" id="music-play-btn"><i class="ri-play-fill" id="music-play-icon"></i></button>
+        <div style="display:flex; align-items:center; gap:10px; padding:0 20px;">
+            <i class="ri-volume-down-line"></i>
+            <input type="range" id="music-vol" min="0" max="1" step="0.1" value="0.3">
+            <i class="ri-volume-up-line"></i>
+        </div>
+    </div>
+    <audio id="audio-el"></audio>
+</div>
+
+<!-- 5. 视频播放器 Modal (z-index: 10000) -->
+<div class="universal-overlay modal-video" id="modal-video" onclick="modalManager.closeIfBackground(event, 'modal-video')">
+    <div class="v-player-card" id="video-card">
+        <header class="v-header-ui">
+            <h3 id="video-title">视频预览</h3>
+            <button class="v-icon-btn" onclick="modalManager.close('modal-video')"><i class="ri-close-line"></i></button>
+        </header>
+        <div style="width:100%; height:100%; position:relative; cursor:pointer;" id="video-stage">
+            <video class="v-video-tag" id="video-el" preload="auto"></video>
+            <div class="v-center-play" id="video-center-play"><i class="ri-play-fill"></i></div>
+        </div>
+        <div class="v-controls-ui">
+            <div class="v-progress-bg" id="video-prog-bg"><div class="v-progress-fill" id="video-prog-fill"></div></div>
+            <div class="v-btns-row">
+                <div style="display:flex; gap:20px; align-items:center;">
+                    <button class="v-icon-btn" id="video-sm-play"><i class="ri-play-mini-fill"></i></button>
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        <i class="ri-volume-up-line" style="color:white;"></i>
+                        <input type="range" id="video-vol" min="0" max="1" step="0.01" style="width:80px; height:4px;">
+                    </div>
+                    <span style="font-size:12px; color:rgba(255,255,255,0.7);"><span id="video-t-curr">00:00</span> / <span id="video-t-total">00:00</span></span>
+                </div>
+                <button class="v-icon-btn" onclick="videoPlayer.toggleFS()"><i class="ri-fullscreen-line"></i></button>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- 模态框 -->
+<!-- 6. 文本编辑器 Modal (z-index: 2500) -->
+<div class="universal-overlay modal-editor" id="modal-editor" onclick="modalManager.closeIfBackground(event, 'modal-editor')">
+    <div class="modal-box modal-settings" style="width: 90%; height: 80%; max-width: 95vw; max-height: 85vh;">
+        <!-- 标题栏 -->
+        <div class="modal-header">
+            <span id="editor-filename">文本编辑</span>
+            <i class="ri-close-line action-icon" onclick="modalManager.close('modal-editor')"></i>
+        </div>
+
+        <!-- 编辑区域 -->
+        <div class="modal-body" style="flex: 1; padding: 0; overflow: hidden; display: flex; flex-direction: column;">
+            <textarea
+                    id="editor-textarea"
+                    class="glass-input"
+                    style="flex: 1; border: none; border-radius: 0; resize: none; background: rgba(255,255,255,0.3); font-family: 'SF Mono', monospace; padding: 15px; font-size: 14px; outline: none;"
+                    spellcheck="false"
+            ></textarea>
+        </div>
+
+        <!-- 底部工具栏 -->
+        <div style="padding: 12px 20px; border-top: 1px solid rgba(0,0,0,0.06); display: flex; justify-content: space-between; align-items: center; background: rgba(255,255,255,0.4);">
+            <div style="font-size: 12px; color: #555;">
+                <i class="ri-hard-drive-line"></i> <span id="editor-stats">0 B</span>
+            </div>
+            <div style="display: flex; gap: 10px;">
+                <button class="btn-glass btn-secondary" onclick="modalManager.close('modal-editor')">取消</button>
+                <button class="btn-glass btn-primary" onclick="textEditor.save()">
+                    <i class="ri-save-3-line"></i> 保存
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- 7. 文档预览 Modal (PDF/DOCX/XLSX) (z-index: 2600) -->
+<div class="universal-overlay modal-doc" id="modal-doc" onclick="modalManager.closeIfBackground(event, 'modal-doc')">
+    <div class="modal-box modal-settings" style="width: 100%; height: 100%; max-width: 95vw;">
+        <!-- 标题栏 -->
+        <div class="modal-header">
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <i id="doc-icon" class="ri-file-line" style="font-size: 20px;"></i>
+                <span id="doc-filename">文档预览</span>
+            </div>
+            <i class="ri-close-line action-icon" onclick="modalManager.close('modal-doc')"></i>
+        </div>
+
+        <!-- 内容区域 -->
+        <div class="modal-body" style="padding: 0; flex: 1; overflow: hidden; background: #f5f7fa; position: relative;">
+            <div id="doc-preview-container" class="doc-content-box"></div>
+            <!-- 加载指示器 -->
+            <div id="doc-loading" style="position: absolute; inset: 0; display: flex; justify-content: center; align-items: center; background: rgba(255,255,255,0.8); z-index: 10;">
+                <span style="color: #666;"><i class="ri-loader-4-line ri-spin"></i> 正在加载文档...</span>
+            </div>
+        </div>
+    </div>
+</div>
+<div id="toast-container"></div>
+<script src="/static/qrcode.js"></script>
+<script src="/static/md5.js"></script>
+<script src="/static/xlsx.js"></script>
+<script src="/static/docx.js"></script>
+
+<script>
+    /**
+     * 核心工具类
+     */
+    const Utils = {
+        toast(msg, success = true) {
+            const container = document.getElementById('toast-container');
+            const div = document.createElement('div');
+            div.className = `toast ${success ? 'success' : 'error'}`;
+            div.innerHTML = `<i class="${success ? 'ri-checkbox-circle-line' : 'ri-close-circle-line'}"></i><span>${msg}</span>`;
+            container.appendChild(div);
+            setTimeout(() => div.remove(), 3500);
+        },
+        formatBytes(bytes) {
+            if (!+bytes) return '0 B';
+            const k = 1024, sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return `${parseFloat((bytes / Math.pow(k, i)).toFixed(2))} ${sizes[i]}`;
+        },
+        formatTime(seconds) {
+            const min = Math.floor(seconds / 60);
+            const sec = Math.floor(seconds % 60);
+            return `${min}:${sec < 10 ? '0' + sec : sec}`;
+        },
+        async request(url, options = {}) {
+            try {
+                const res = await fetch(url, options);
+                if (!res.ok) {
+                    const errorMsg = await res.text() || res.statusText;
+                    const error = new Error(errorMsg);
+                    error.status = res.status;
+                    throw error;
+                }
+                return res;
+            } catch (err) {
+                if (err.name !== 'AbortError') Utils.toast(err.message || '请求失败', false);
+                throw err;
+            }
+        }
+    };
+
+    /**
+     * 模态框管理器
+     */
+    const modalManager = {
+        open(id) {
+            // 确保ID匹配 HTML 中的定义
+            const targetId = id.startsWith('modal') ? id : `modal-${id}`;
+            const el = document.getElementById(targetId);
+            if(el) {
+                el.style.display = 'flex';
+                el.offsetHeight;
+                el.classList.add('active');
+                // 如果是新建弹窗，聚焦输入框
+                if(id === 'create') setTimeout(() => document.getElementById('create-name-input').focus(), 100);
+            }
+        },
+        close(id) {
+            const targetId = id.startsWith('modal') ? id : `modal-${id}`;
+            const el = document.getElementById(targetId);
+            if(el) {
+                el.classList.remove('active');
+                if(id.includes('video')) videoPlayer.pause();
+                if(id.includes('music')) musicPlayer.pause();
+                setTimeout(() => el.style.display = 'none', 300);
+            }
+        },
+        closeIfBackground(e, id) {
+            if (e.target.id === id) this.close(id);
+        }
+    };
+
+    /**
+     * 文件系统
+     */
+    const fileSystem = {
+        currentFolderId: parseInt(localStorage.getItem('currentFolderId')) || 1,
+        pathHistory: JSON.parse(localStorage.getItem('pathHistory')) || [{id: 1, name: '根目录'}],
+        abortCtrl: null,
+
+        init() {
+            this.renderBreadcrumbs();
+            this.loadList(this.currentFolderId, 1, true);
+            this.updateClock();
+            setInterval(() => this.updateClock(), 1000);
+            this.updateStorage();
+            setInterval(() => this.updateStorage(), 60000);
+            this.initDragAndDrop();
+        },
+
+        saveState() {
+            localStorage.setItem('pathHistory', JSON.stringify(this.pathHistory));
+            localStorage.setItem('currentFolderId', this.currentFolderId.toString());
+        },
+
+        updateClock() {
+            document.getElementById('bj-clock').innerText = new Date().toLocaleString('zh-CN', {
+                year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit', second:'2-digit', hour12:false, weekday:'short', timeZone:'Asia/Shanghai'
+            });
+        },
+
+        updateStorage() {
+            Utils.request('/api/store/get').then(res => res.text()).then(text => {
+                const fill = document.getElementById('progress-fill');
+                fill.style.width = text + '%';
+                document.getElementById('progress-text').innerText = text + '%';
+                fill.style.background = text < 50 ? (text < 20 ? '#e74c3c' : '#f39c12') : '#27ae60';
+            }).catch(() => {});
+        },
+
+        renderBreadcrumbs() {
+            const container = document.getElementById('breadcrumbs');
+            container.innerHTML = '<i class="ri-folder-open-line" style="font-size: 16px; color: #00a1d6; margin-right: 5px;"></i>';
+            this.pathHistory.forEach((item, idx) => {
+                const isLast = idx === this.pathHistory.length - 1;
+                const span = document.createElement('span');
+                span.className = isLast ? 'crumb-item crumb-current' : 'crumb-item';
+                span.innerText = item.name;
+                if (!isLast) {
+                    span.onclick = () => {
+                        this.pathHistory = this.pathHistory.slice(0, idx + 1);
+                        this.currentFolderId = item.id;
+                        this.saveState();
+                        this.renderBreadcrumbs();
+                        this.loadList(item.id, 1, true);
+                    };
+                    container.appendChild(span);
+                    container.appendChild(document.createTextNode(' / '));
+                } else {
+                    container.appendChild(span);
+                }
+            });
+            container.scrollLeft = container.scrollWidth;
+        },
+
+        async loadList(id, page, reset = false) {
+            if (reset) {
+                if (this.abortCtrl) this.abortCtrl.abort();
+                this.abortCtrl = new AbortController();
+                document.getElementById('file-list-body').innerHTML = '';
+                document.getElementById('loading-tip').style.display = 'block';
+                document.getElementById('no-more-tip').style.display = 'none';
+            }
+
+            try {
+                const res = await Utils.request(`/api/filelist/get?id=${id}&page=${page}`, { signal: this.abortCtrl?.signal });
+                const data = await res.json();
+                if (id !== this.currentFolderId) return;
+
+                const files = data.file || [];
+                this.renderTable(files);
+
+                if (files.length < 10) {
+                    document.getElementById('loading-tip').style.display = 'none';
+                    document.getElementById('no-more-tip').style.display = 'block';
+                } else {
+                    setTimeout(() => { if(id === this.currentFolderId) this.loadList(id, page + 1); }, 500);
+                }
+            } catch (err) {
+
+                if (err.name !== 'AbortError') {
+                    document.getElementById('loading-tip').style.display = 'none';
+                }
+
+                // 判断条件增加：或者 error.status 为 404
+                if ((err.message && err.message.includes('404')) || err.status === 404) {
+                    console.log("检测到404，正在重置回根目录...");
+
+                    // 防止无限循环：如果你现在的 ID 已经是 1 了还报错，就不要再 init 了
+                    if (this.currentFolderId === 1) return;
+
+                    this.pathHistory = [{id: 1, name: '根目录'}];
+                    this.currentFolderId = 1;
+                    this.saveState();
+
+                    // 建议使用 setTimeout 确保当前的异步栈清理完毕后再刷新
+                    setTimeout(() => this.init(), 10);
+                }
+            }
+        },
+
+        renderTable(files) {
+            const fragment = document.createDocumentFragment();
+            files.forEach(file => {
+                const tr = document.createElement('tr');
+                const isDir = file.is_dir === 1;
+                const mime = (file.mime || '').toLowerCase();
+
+                const iconMap = {
+                    dir: { icon: 'ri-folder-2-fill', color: '#e67e22' },
+                    image: { icon: 'ri-image-fill', color: '#27ae60' },
+                    video: { icon: 'ri-movie-fill', color: '#c0392b' },
+                    audio: { icon: 'ri-music-2-fill', color: '#8e44ad' },
+                    text: { icon: 'ri-file-text-fill', color: '#2980b9' },
+                    zip: { icon: 'ri-file-zip-fill', color: '#f39c12' },
+                    pdf: { icon: 'ri-file-pdf-fill', color: '#ef4444' },     // 新增
+                    word: { icon: 'ri-file-word-fill', color: '#2563eb' },   // 新增
+                    excel: { icon: 'ri-file-excel-fill', color: '#10b981' }  // 新增
+                };
+
+                let typeKey = 'file';
+                if (isDir) typeKey = 'dir';
+                else if (mime.includes('image')) typeKey = 'image';
+                else if (mime.includes('video')) typeKey = 'video';
+                else if (mime.includes('audio') || mime.includes('music')) typeKey = 'audio';
+                else if (mime.includes('text')) typeKey = 'text';
+                else if (mime.includes('zip') || mime.includes('rar')) typeKey = 'zip';
+                else if (mime.includes('pdf')) typeKey = 'pdf';
+                else if (mime.includes('word') || name.endsWith('.docx') || name.endsWith('.doc')) typeKey = 'word';
+                else if (mime.includes('spreadsheet') || mime.includes('excel') || name.endsWith('.xlsx') || name.endsWith('.xls')) typeKey = 'excel';
+                const style = iconMap[typeKey] || { icon: 'ri-file-fill', color: '#7f8c8d' };
+
+                tr.innerHTML = `
+                <td class="col-icon"><i class="${style.icon}" style="color:${style.color}"></i></td>
+                <td class="col-name" title="${file.lname}">${file.lname}</td>
+                <td class="col-size">${isDir ? '-' : Utils.formatBytes(file.size)}</td>
+                <td class="col-time">${file.created_at}</td>
+                <td class="col-op-sm"><i class="ri-delete-bin-line action-icon icon-del"></i></td>
+                <td class="col-op-sm">${isDir ? '-' : '<i class="ri-download-cloud-line action-icon icon-down"></i>'}</td>
+            `;
+
+                const delBtn = tr.querySelector('.icon-del');
+                delBtn.onclick = (e) => { e.stopPropagation(); this.deleteFile(file.id, tr); };
+
+                if (!isDir) {
+                    const downBtn = tr.querySelector('.icon-down');
+                    if(downBtn) downBtn.onclick = (e) => { e.stopPropagation(); this.downloadFile(file.id,file.lname); };
+                }
+
+                tr.onclick = (e) => {
+                    if (isDir){
+                        this.enterFolder(file.id, file.lname);
+                    }else {
+                        this.previewFile(file, mime);
+                    }
+                };
+                fragment.appendChild(tr);
+            });
+            document.getElementById('file-list-body').appendChild(fragment);
+        },
+
+        enterFolder(id, name) {
+            this.pathHistory.push({ id, name });
+            this.currentFolderId = id;
+            this.saveState();
+            this.renderBreadcrumbs();
+            this.loadList(id, 1, true);
+        },
+
+        goBack() {
+            if (this.pathHistory.length <= 1) return Utils.toast('已经是根目录了', false);
+            this.pathHistory.pop();
+            const prev = this.pathHistory[this.pathHistory.length - 1];
+            this.currentFolderId = prev.id;
+            this.saveState();
+            this.renderBreadcrumbs();
+            this.loadList(prev.id, 1, true);
+        },
+
+        deleteFile(id, rowEl) {
+            Utils.request(`/api/file/delete?id=${id}`).then(async res => {
+                Utils.toast(await res.text());
+                rowEl.style.opacity = '0';
+                setTimeout(() => rowEl.remove(), 50);
+            });
+        },
+
+        downloadFile(id,lname) {
+            const a = document.createElement('a');
+            a.href = `/api/file/download?id=${encodeURIComponent(id)}`;
+            a.click();
+            Utils.toast(`开始下载: ${lname}`);
+        },
+
+        previewFile(file, mime) {
+            const url = `/api/file/preview?id=${file.id}&t=${new Date().getTime()}`;
+            if (mime.startsWith('image/')) {
+                document.getElementById('img-preview').src = ""
+                document.getElementById('img-preview').alt = "加载中"
+                document.getElementById('img-preview').src = url;
+                modalManager.open('image');
+            } else if (mime.startsWith('video/')) {
+                videoPlayer.play(url, file.lname);
+            } else if (mime.startsWith('audio/') || mime.startsWith('music/')) {
+                musicPlayer.play(url, file.lname,file.id);
+            } else if (mime.startsWith('text/')){
+                textEditor.open(file);
+            }  else if (mime==='application/pdf') {
+                docViewer.open(file, 'pdf');
+            } else if (mime==='application/docx') {
+                docViewer.open(file, 'docx');
+            } else if (mime==='application/xlsx') {
+                docViewer.open(file, 'xlsx');
+            } else {
+                Utils.toast('该文件类型不支持预览，请下载', false);
+            }
+        },
+
+        submitCreate(type) {
+            const input = document.getElementById('create-name-input');
+            const name = input.value.trim();
+            if (!name) return Utils.toast('名称不能为空', false);
+
+            const endpoint = type === 'file' ? 'file' : 'filefolder';
+            Utils.request(`/api/${endpoint}/create?name=${encodeURIComponent(name)}&parent_id=${this.currentFolderId}`)
+                .then(async res => {
+                    Utils.toast(await res.text());
+                    modalManager.close('modal-create');
+                    input.value = '';
+                    this.loadList(this.currentFolderId, 1, true);
+                });
+        },
+
+        triggerUpload() {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.multiple = true;
+            input.onchange = async (e) => {
+                const files = Array.from(e.target.files);
+                if (files.length === 0) return;
+
+                Utils.toast(`开始上传 ${files.length} 个文件...`);
+                const limit = 4;
+                const pool = [];
+                const uploadid = this.currentFolderId
+                for (const file of files) {
+                    const promise = this.uploadSingle(file,uploadid).then(() => {
+                        pool.splice(pool.indexOf(promise), 1);
+                    });
+
+                    pool.push(promise);
+
+                    // 如果池子满了，就等待池子中最快的一个任务完成
+                    if (pool.length >= limit) {
+                        await Promise.race(pool);
+                    }
+                }
+
+                // 等待最后一波任务全部完成
+                await Promise.all(pool);
+                this.loadList(this.currentFolderId, 1, true);
+            };
+            input.click();
+        },
+
+        async uploadSingle(file,uploadid) {
+            try {
+                const md5 = await this.calculateMd5(file);
+
+                // 2. 秒传检查
+                const params = `parent_id=${uploadid}&hash=${md5}&size=${file.size}&name=${encodeURIComponent(file.name)}`;
+                const checkRes = await Utils.request(`/api/file/ready-file?${params}`);
+                const checkStatus = await checkRes.text();
+
+                if (checkStatus === "1") {
+                    Utils.toast(`${file.name} 上传成功`);
+                    return { name: file.name, status: 'skipped' };
+                }
+                await Utils.request(`/api/file/upload?${params}`, {
+                    method: 'POST',
+                    body: file,
+                });
+
+                Utils.toast(`${file.name} 上传成功`);
+                return { name: file.name, status: 'success' };
+            } catch (e) {
+                return { name: file.name, status: 'error', error: e.message };
+            }
+        },
+
+        calculateMd5(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                const chunkSize = 1024 * 1024;
+                const md5 = CryptoJS.algo.MD5.create();
+                let offset = 0;
+
+                const readNext = () => {
+                    const slice = file.slice(offset, offset + chunkSize);
+                    reader.readAsArrayBuffer(slice);
+                };
+
+                reader.onload = (e) => {
+                    md5.update(CryptoJS.lib.WordArray.create(new Uint8Array(e.target.result)));
+                    offset += chunkSize;
+                    if (offset < file.size) readNext();
+                    else resolve(md5.finalize().toString(CryptoJS.enc.Hex));
+                };
+                reader.onerror = reject;
+                readNext();
+            });
+        },
+        // 在 fileSystem 对象内新增的方法
+        initDragAndDrop() {
+            const dropZone = document.querySelector('.glass-modal');
+
+            // 阻止浏览器默认行为（防止浏览器直接打开文件）
+            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+                dropZone.addEventListener(eventName, e => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                }, false);
+            });
+
+            // 拖拽进入时的视觉效果
+            ['dragenter', 'dragover'].forEach(eventName => {
+                dropZone.addEventListener(eventName, () => {
+                    dropZone.style.border = '2px dashed var(--accent-blue)';
+                    dropZone.style.backgroundColor = 'rgba(0, 161, 214, 0.05)';
+                }, false);
+            });
+
+            // 拖拽离开或释放时的视觉恢复
+            ['dragleave', 'drop'].forEach(eventName => {
+                dropZone.addEventListener(eventName, () => {
+                    dropZone.style.border = '1px solid var(--glass-border)';
+                    dropZone.style.backgroundColor = '';
+                }, false);
+            });
+
+            // 处理文件释放
+            dropZone.addEventListener('drop', async (e) => {
+                const files = e.dataTransfer.files;
+                if (files.length > 0) {
+                    const uploadid = this.currentFolderId
+                    for (let file of files) {
+                        // 排除文件夹（通常文件夹 size 为 0 且没有后缀，但准确判断需用 webkitGetAsEntry）
+                        // 这里采用简单处理，直接调用你已有的 uploadSingle
+                        Utils.toast(`正在处理拖拽文件: ${file.name}`);
+                        await this.uploadSingle(file,uploadid);
+                    }
+                    this.loadList(this.currentFolderId, 1, true);
+                }
+            }, false);
+        }
+    };
+
+    /**
+     * 设置管理器
+     */
+    const settingsManager = {
+        getKey: () => document.getElementById('secret-input').value.trim(),
+
+        open() {
+            modalManager.open('settings');
+            Utils.request('/api/setting/get').then(async res => {
+                const text = await res.text();
+                document.getElementById('switch-isLogin').checked = (res.status === 202);
+                QRCode.toCanvas(document.getElementById('qrcode'), text, { margin: 1 }, err => { if(err) console.error(err); });
+            });
+        },
+
+        updateSecret() {
+            const key = this.getKey();
+            Utils.request(`/api/secret/updata?key=${encodeURIComponent(key)}`).then(async res => {
+                Utils.toast('密钥更新成功');
+                QRCode.toCanvas(document.getElementById('qrcode'), await res.text());
+            }).finally(() => document.getElementById('secret-input').value = '');
+        },
+
+        changeBg() {
+            const input = document.getElementById('bkginput');
+            input.click();
+            input.onchange = () => {
+                const file = input.files[0];
+                if(!file) return;
+                if(file.size > 20*1024*1024) return Utils.toast('背景图不能超过20MB', false);
+
+                const reader = new FileReader();
+                reader.onload = () => {
+                    Utils.request(`/api/setting/update_bkg?key=${encodeURIComponent(this.getKey())}`, {
+                        method: 'POST', body: reader.result, headers: {'Content-Type': 'application/octet-stream'}
+                    }).then(() => {
+                        Utils.toast('背景已更新');
+                        setTimeout(() => location.reload(), 1000);
+                    });
+                };
+                reader.readAsArrayBuffer(file);
+            };
+        },
+
+        cleanTrash() { this.genericAction('cleanfile', '回收站已清空'); },
+        cleanIp() { this.genericAction('clean_lim', 'IP封锁已清除'); },
+        viewLog() { window.open(`/api/error/get?key=${encodeURIComponent(this.getKey())}`); },
+        clearLog() { fetch(`/api/error/clear?key=${encodeURIComponent(this.getKey())}`).then(resp=>{
+            if (resp.ok){
+                resp.text().then(text=>{Utils.toast(text)})
+            }else {
+                resp.text().then(text=>{Utils.toast(text,false)})
+            }
+        }).catch(err=>{
+            Utils.toast(err,false);
+        }); },
+
+        genericAction(action, successMsg) {
+            Utils.request(`/api/setting/${action}?key=${encodeURIComponent(this.getKey())}`).then(async res => {
+                Utils.toast(await res.text() || successMsg);
+            }).finally(() => document.getElementById('secret-input').value = '');
+        }
+    };
+
+    document.getElementById('switch-isLogin').addEventListener('change', function() {
+        Utils.request(`/api/auth/updata?key=${encodeURIComponent(settingsManager.getKey())}`).then(() => {
+            Utils.toast(this.checked ? '已开启登录验证' : '已关闭登录验证');
+        }).catch(() => {
+            this.checked = !this.checked;
+        }).finally(() => document.getElementById('secret-input').value = '');
+    });
+
+    /**
+     * 音乐播放器逻辑
+     */
+    const musicPlayer = {
+        audio: document.getElementById('audio-el'),
+        playBtn: document.getElementById('music-play-btn'),
+        icon: document.getElementById('music-play-icon'),
+
+        init() {
+            this.audio.volume = 0.3;
+            this.playBtn.onclick = () => this.toggle();
+            this.audio.ontimeupdate = () => {
+                const p = (this.audio.currentTime / this.audio.duration) * 100;
+                document.getElementById('music-progress').value = p || 0;
+                document.getElementById('music-time-curr').innerText = Utils.formatTime(this.audio.currentTime);
+                document.getElementById('music-time-total').innerText = Utils.formatTime(this.audio.duration || 0);
+            };
+            document.getElementById('music-progress').oninput = (e) => {
+                this.audio.currentTime = (e.target.value / 100) * this.audio.duration;
+            };
+            document.getElementById('music-vol').oninput = (e) => this.audio.volume = e.target.value;
+        },
+
+        play(url, name,id) {
+            this.audio.src = url;
+            document.getElementById('music-name').innerText = name;
+            const img = document.getElementById('music-cover');
+            img.onerror = function() {
+                this.src = '/static/bkg';
+                this.onerror = null;
+            };
+            img.src = `/api/imaging/preview?id=${id}&t=${new Date().getTime()}`;
+            modalManager.open('music');
+            this.audio.play();
+            this.updateUI(true);
+            document.getElementById('cover-wrapper').classList.add('playing');
+        },
+
+        pause() {
+            this.audio.pause();
+            this.updateUI(false);
+            document.getElementById('cover-wrapper').classList.remove('playing');
+        },
+
+        toggle() {
+            if(this.audio.paused) { this.audio.play(); this.updateUI(true); document.getElementById('cover-wrapper').classList.add('playing'); }
+            else { this.pause(); }
+        },
+
+        updateUI(isPlaying) {
+            this.icon.className = isPlaying ? 'ri-pause-fill' : 'ri-play-fill';
+        }
+    };
+
+    /**
+     * 视频播放器逻辑
+     */
+    const videoPlayer = {
+        video: document.getElementById('video-el'),
+        card: document.getElementById('video-card'),
+        hideTimer: null,
+
+        init() {
+            this.video.volume = 0.3;
+            document.getElementById('video-vol').value = 0.3;
+
+            // 点击视频区域 切换播放/暂停
+            const toggle = () => this.toggle();
+            document.getElementById('video-stage').onclick = toggle;
+            document.getElementById('video-sm-play').onclick = (e) => { e.stopPropagation(); toggle(); };
+
+            // 进度条更新逻辑
+            this.video.ontimeupdate = () => {
+                const pct = (this.video.currentTime / this.video.duration) * 100;
+                document.getElementById('video-prog-fill').style.width = pct + '%';
+                document.getElementById('video-t-curr').innerText = Utils.formatTime(this.video.currentTime);
+            };
+            this.video.onloadedmetadata = () => {
+                document.getElementById('video-t-total').innerText = Utils.formatTime(this.video.duration);
+            };
+
+            // 进度条点击跳转
+            document.getElementById('video-prog-bg').onclick = (e) => {
+                const rect = e.target.closest('.v-progress-bg').getBoundingClientRect();
+                const pos = (e.clientX - rect.left) / rect.width;
+                this.video.currentTime = pos * this.video.duration;
+            };
+
+            // 音量控制
+            document.getElementById('video-vol').oninput = (e) => this.video.volume = e.target.value;
+
+            /* --- 优化后的 UI 显隐逻辑 --- */
+
+            // 显示控件的函数
+            const showControls = () => {
+                this.card.classList.remove('v-state-hidden');
+                this.video.style.cursor = 'default'; // 显示鼠标
+                clearTimeout(this.hideTimer);
+
+                // 只有在播放状态下，才开启“3秒后自动隐藏”
+                if(!this.video.paused) {
+                    this.hideTimer = setTimeout(() => {
+                        this.card.classList.add('v-state-hidden');
+                        this.video.style.cursor = 'none'; // 隐藏鼠标，沉浸式体验
+                    }, 3000);
+                }
+            };
+
+            // 1. 鼠标移动或点击时：显示控件
+            this.card.onmousemove = showControls;
+            this.card.onclick = showControls;
+
+            // 2. [新增] 鼠标移出播放器区域时：立即隐藏控件 (仅在播放时)
+            this.card.onmouseleave = () => {
+                if(!this.video.paused) {
+                    clearTimeout(this.hideTimer); // 清除3秒倒计时，直接执行
+                    this.card.classList.add('v-state-hidden');
+                    // 这里不隐藏鼠标，因为鼠标已经移出去了
+                }
+            };
+        },
+
+        play(url, title) {
+            this.video.src = url;
+            document.getElementById('video-title').innerText = title || '视频预览';
+            modalManager.open('video');
+        },
+
+        pause() {
+            this.video.pause();
+            this.updateUI(false);
+            this.card.classList.remove('v-state-hidden');
+            if(document.fullscreenElement) document.exitFullscreen();
+        },
+
+        toggle() {
+            if(this.video.paused) {
+                this.video.play();
+                this.updateUI(true);
+                setTimeout(() => this.card.classList.add('v-state-hidden'), 2000);
+            } else {
+                this.video.pause();
+                this.updateUI(false);
+                this.card.classList.remove('v-state-hidden');
+            }
+        },
+
+        updateUI(isPlaying) {
+            const centerBtn = document.getElementById('video-center-play');
+            const smIcon = document.querySelector('#video-sm-play i');
+
+            if(isPlaying) {
+                centerBtn.style.opacity = '0';
+                centerBtn.style.transform = 'translate(-50%, -50%) scale(1.5)';
+                smIcon.className = 'ri-pause-mini-fill';
+            } else {
+                centerBtn.style.opacity = '1';
+                centerBtn.style.transform = 'translate(-50%, -50%) scale(1)';
+                smIcon.className = 'ri-play-mini-fill';
+            }
+        },
+
+        toggleFS() {
+            if (!document.fullscreenElement) this.card.requestFullscreen().catch(()=>{});
+            else document.exitFullscreen();
+        }
+    };
+    /**
+     * 文本编辑器逻辑
+     */
+    const textEditor = {
+        el: document.getElementById('editor-textarea'),
+        titleEl: document.getElementById('editor-filename'),
+        statsEl: document.getElementById('editor-stats'),
+        currentId: null,
+        originalContent: '',
+
+        init() {
+            // 实时监听输入以更新大小统计
+            this.el.addEventListener('input', () => this.updateStats());
+            // 支持 Ctrl+S 保存
+            this.el.addEventListener('keydown', (e) => {
+                if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+                    e.preventDefault();
+                    this.save();
+                }
+            });
+        },
+
+        open(file) {
+            this.currentId = file.id;
+            this.titleEl.innerText = file.lname;
+            this.el.value = '加载中...';
+            this.el.disabled = true;
+            this.statsEl.innerText = '读取中...';
+
+            modalManager.open('modal-editor');
+
+            // 获取文件内容
+            const url = `/api/file/preview?id=${file.id}&t=${new Date().getTime()}`;
+            Utils.request(url)
+                .then(res => res.text())
+                .then(text => {
+                    this.el.value = text;
+                    this.originalContent = text; // 记录原始内容用于对比(可选)
+                    this.el.disabled = false;
+                    this.el.focus();
+                    this.updateStats();
+                })
+                .catch(err => {
+                    this.el.value = `无法读取文件内容: ${err.message}`;
+                    Utils.toast('文件读取失败', false);
+                });
+        },
+
+        async save() {
+            if (!this.currentId) return;
+
+            const content = this.el.value;
+            Utils.toast('正在保存...');
+
+            try {
+                const res = await fetch(`/api/txtfile/save?id=${this.currentId}`, {
+                    method: "POST",
+                    body: content
+                });
+
+                if (res.ok) {
+                    Utils.toast('保存成功');
+                    // 可选：保存成功后刷新列表以更新文件大小
+                    fileSystem.loadList(fileSystem.currentFolderId, 1, true);
+                } else {
+                    const errText = await res.text();
+                    Utils.toast(`保存失败: ${errText}`, false);
+                }
+            } catch (err) {
+                Utils.toast(`请求错误: ${err.message}`, false);
+            }
+        },
+
+        updateStats() {
+            const blob = new Blob([this.el.value]);
+            this.statsEl.innerText = Utils.formatBytes(blob.size);
+        }
+    };
+    /**
+     * 文档预览器逻辑 (PDF, DOCX, XLSX)
+     */
+    const docViewer = {
+        container: document.getElementById('doc-preview-container'),
+        titleEl: document.getElementById('doc-filename'),
+        iconEl: document.getElementById('doc-icon'),
+        loader: document.getElementById('doc-loading'),
+
+        open(file, type) {
+            this.titleEl.innerText = file.lname;
+            this.container.innerHTML = ''; // 清空旧内容
+            this.loader.style.display = 'flex';
+
+            // 设置图标颜色和类名
+            let iconClass = 'ri-file-line';
+            let iconColor = '#555';
+
+            if (type === 'pdf') { iconClass = 'ri-file-pdf-fill'; iconColor = '#ef4444'; }
+            else if (type === 'docx') { iconClass = 'ri-file-word-fill'; iconColor = '#2563eb'; }
+            else if (type === 'xlsx') { iconClass = 'ri-file-excel-fill'; iconColor = '#10b981'; }
+
+            this.iconEl.className = iconClass;
+            this.iconEl.style.color = iconColor;
+
+            modalManager.open('modal-doc');
+
+            // 从服务器获取文件 Blob
+            const url = `/api/file/preview?id=${file.id}&t=${new Date().getTime()}`;
+            fetch(url)
+                .then(res => {
+                    if (!res.ok) throw new Error('网络请求失败');
+                    return res.blob();
+                })
+                .then(blob => {
+                    if (type === 'pdf') this.renderPDF(blob);
+                    else if (type === 'docx') this.renderDocx(blob);
+                    else if (type === 'xlsx') this.renderXlsx(blob);
+                })
+                .catch(err => {
+                    this.container.innerHTML = `<div style="text-align:center; padding:50px; color:#e74c3c;">
+                        <i class="ri-error-warning-line" style="font-size:40px;"></i><br>
+                        文件加载失败: ${err.message}
+                    </div>`;
+                })
+                .finally(() => {
+                    this.loader.style.display = 'none';
+                });
+        },
+
+        renderPDF(blob) {
+            // 注意：Blob URL 需要在 iframe 中加载
+            const url = URL.createObjectURL(blob);
+            const iframe = document.createElement('iframe');
+            iframe.src = url;
+            this.container.style.padding = '0'; // PDF 需要全屏铺满
+            this.container.appendChild(iframe);
+
+            // 简单清理内存机制 (实际生产环境可以在 modal 关闭时清理)
+            iframe.onload = () => { /* URL.revokeObjectURL(url); PDF viewer sometimes needs it longer */ };
+        },
+
+        renderDocx(blob) {
+            this.container.style.padding = '40px'; // Word 恢复内边距
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const arrayBuffer = e.target.result;
+                // 使用 mammoth 解析
+                if (typeof mammoth === 'undefined') {
+                    this.container.innerHTML = '错误: 未加载 mammoth.js 库';
+                    return;
+                }
+                mammoth.convertToHtml({arrayBuffer: arrayBuffer})
+                    .then(result => {
+                        this.container.innerHTML = result.value;
+                    })
+                    .catch(err => {
+                        this.container.innerHTML = `解析 Word 失败: ${err.message}`;
+                    });
+            };
+            reader.readAsArrayBuffer(blob);
+        },
+
+        renderXlsx(blob) {
+            this.container.style.padding = '20px'; // Excel 适中内边距
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const data = new Uint8Array(e.target.result);
+                if (typeof XLSX === 'undefined') {
+                    this.container.innerHTML = '错误: 未加载 xlsx.js 库';
+                    return;
+                }
+                const workbook = XLSX.read(data, {type: 'array'});
+                // 默认取第一个 Sheet
+                const firstSheetName = workbook.SheetNames[0];
+                const worksheet = workbook.Sheets[firstSheetName];
+                const htmlString = XLSX.utils.sheet_to_html(worksheet);
+                this.container.innerHTML = htmlString;
+            };
+            reader.readAsArrayBuffer(blob);
+        }
+    };
+    const userAuth = {
+        logout() {
+            Utils.request('/api/loginout').then(() => {
+                Utils.toast('已安全退出');
+                setTimeout(() => location.href = '/login', 500);
+            });
+        }
+    };
+
+    document.addEventListener('DOMContentLoaded', () => {
+        fileSystem.init();
+        musicPlayer.init();
+        videoPlayer.init();
+        textEditor.init(); // 新增这一行
+    });
+</script>
+</body>
+</html>

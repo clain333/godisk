@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GODISK登录</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html, body {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+        }
+
+        body {
+            min-width: 100vw;
+            min-height: 100vh;
+
+            background-image: url('/static/bkg');
+            background-repeat: no-repeat;
+            background-position: center center;
+            background-size: cover;
+
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        #toast-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            gap: 10px; /* 气泡之间的间距 */
+        }
+
+        .toast {
+            min-width: 200px;
+            padding: 15px 20px;
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            display: flex;
+            align-items: center;
+            font-size: 14px;
+            color: #333;
+
+            /* 动画定义 */
+            animation: slideInRight 0.3s cubic-bezier(0.215, 0.61, 0.355, 1) forwards,
+            fadeOut 0.5s forwards 3s; /* 3秒后开始消失 */
+            opacity: 0;
+            transform: translateX(100%);
+        }
+
+        /* 成功样式 (绿色系) */
+        .toast.success {
+            border-left: 5px solid #2ecc71;
+        }
+        .toast.success::before {
+            content: '✓';
+            display: inline-block;
+            margin-right: 10px;
+            color: #2ecc71;
+            font-weight: bold;
+            font-size: 16px;
+        }
+
+        /* 失败样式 (红色系) */
+        .toast.error {
+            border-left: 5px solid #e74c3c;
+        }
+        .toast.error::before {
+            content: '✕';
+            display: inline-block;
+            margin-right: 10px;
+            color: #e74c3c;
+            font-weight: bold;
+            font-size: 16px;
+        }
+
+        /* 动画关键帧 */
+        @keyframes slideInRight {
+            from { opacity: 0; transform: translateX(120%); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+        @keyframes fadeOut {
+            from { opacity: 1; transform: translateX(0); }
+            to { opacity: 0; transform: translateX(20%); pointer-events: none; }
+        }
+        .glass-modal {
+            position: relative;
+            padding: 40px;
+            width: 90%;
+            max-width: 480px;
+            text-align: center;
+            border-radius: 20px;
+            background: rgba(255, 255, 255, 0.45);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.4);
+            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.2);
+        }
+
+        .title {
+            color: #fff;
+            font-size: 22px;
+            font-weight: 600;
+            margin-bottom: 30px;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            letter-spacing: 1px;
+        }
+
+        /* --- 3. 验证码框容器 --- */
+        .code-container {
+            position: relative;
+            display: flex;
+            justify-content: space-between; /* 两端对齐，自动计算间距 */
+            gap: 10px; /* 最小间距 */
+            margin-bottom: 20px;
+        }
+
+        /* 单个方框样式 */
+        .box {
+            width: 50px;
+            height: 60px;
+            /* 方框也是半透明的 */
+            background: rgba(255, 255, 255, 0.3);
+            border: 2px solid rgba(255, 255, 255, 0.5);
+            border-radius: 10px;
+
+            display: flex;
+            justify-content: center;
+            align-items: center;
+
+            font-size: 28px;
+            font-weight: bold;
+            color: #fff;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        /* 激活/已输入状态：绿色高亮 */
+        .box.active {
+            background: rgba(46, 204, 113, 0.25); /* 绿色半透明背景 */
+            border-color: #2ecc71;                 /* 鲜艳的绿色边框 */
+            box-shadow: 0 0 15px rgba(46, 204, 113, 0.6); /* 绿色荧光 */
+            transform: translateY(-2px); /* 微微上浮 */
+            text-shadow: 0 0 5px rgba(255,255,255,0.8);
+        }
+
+        /* --- 4. 隐形输入框 (覆盖层) --- */
+        #hidden-input {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            opacity: 0;
+            cursor: pointer;
+            z-index: 10;
+            /* 防止移动端字体缩放 */
+            font-size: 1px;
+            color: transparent;
+            background: transparent;
+            border: none;
+            outline: none;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: scale(0.9); }
+            to { opacity: 1; transform: scale(1); }
+        }
+    </style>
+</head>
+<body>
+
+
+<div class="glass-modal">
+    <div class="title">安全验证</div>
+
+    <div class="code-container">
+        <div class="box"></div>
+        <div class="box"></div>
+        <div class="box"></div>
+        <div class="box"></div>
+        <div class="box"></div>
+        <div class="box"></div>
+        <input type="tel" id="hidden-input" maxlength="6" pattern="[0-9]*" autocomplete="one-time-code">
+    </div>
+
+</div>
+
+<div id="toast-container"></div>
+<script>
+
+
+    const toastContainer = document.getElementById('toast-container');
+    var type = ''
+    function showToast(message, ok = true) {
+        if (ok){
+            type = 'success'
+        }else{
+            type = 'error'
+        }
+        // 创建气泡元素
+        const toast = document.createElement('div');
+        toast.classList.add('toast', type);
+        toast.innerText = message;
+
+        // 添加到容器
+        toastContainer.appendChild(toast);
+
+        // 3.5秒后从DOM中移除 (配合CSS动画时间)
+        setTimeout(() => {
+            if (toast && toast.parentNode) {
+                toast.parentNode.removeChild(toast);
+            }
+        }, 3500);
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        const input = document.getElementById('hidden-input');
+        const boxes = document.querySelectorAll('.box');
+        let isProcessing = false;
+
+        // 自动聚焦
+        input.focus();
+
+        // 点击区域重新聚焦
+        document.querySelector('.code-container').addEventListener('click', () => {
+            input.focus();
+        });
+
+        input.addEventListener('input', (e) => {
+            if (isProcessing) {
+                e.preventDefault();
+                return;
+            }
+
+            // 1. 过滤非数字
+            let val = e.target.value.replace(/\D/g, '');
+            e.target.value = val;
+
+            // 2. 渲染 UI
+            boxes.forEach((box, idx) => {
+                if (idx < val.length) {
+                    box.innerText = val[idx];
+                    box.classList.add('active'); // 添加绿色高亮类
+                } else {
+                    box.innerText = '';
+                    box.classList.remove('active');
+                }
+            });
+
+            // 3. 检测是否输完6位
+            if (val.length === 6) {
+                handleComplete(val);
+            }
+        });
+
+        function handleComplete(code) {
+            isProcessing = true;
+            input.blur(); // 关闭键盘
+            setTimeout(() => {
+               fetch(`/api/login?key=${code}`).then(resp=>{
+                   const status = resp.status;
+                  return resp.text().then(text => ({ status, text }))
+                   .then(({ status, text }) => {
+                        if (status === 200){
+                            showToast(text)
+                            setTimeout(()=>{
+                                window.location.href = "/"
+                            },800)
+                        }else {
+                            input.value = '';
+                            boxes.forEach(b => {
+                                b.innerText = '';
+                                b.classList.remove('active');
+                            });
+                            isProcessing = false;
+                            input.focus();
+                            showToast(text,false)
+                        }
+                   }).catch(err => {
+                       showToast(err,false)
+                   });
+               })
+            }, 200);
+        }
+    });
+</script>
+</body>
+</html>
